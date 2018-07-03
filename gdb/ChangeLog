@@ -1,3 +1,11 @@
+2021-02-10  Jan Vrany  <jan.vrany@labware.com>
+
+	* observable.h: Define new observables target_connected and
+	target_disconnected.
+	* observable.c: Likewise.
+	* target.c (target_stack::push, target_stack::unpush): Notify
+	observers of target_connected and target_disconnected
+
 2021-05-14  Tankut Baris Aktemur  <tankut.baris.aktemur@intel.com>
 
 	* python/py-inferior.c (infpy_get_connection_num): New function.
