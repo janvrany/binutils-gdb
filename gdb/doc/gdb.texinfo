@@ -30041,6 +30041,13 @@ written in an inferior.  The @var{id} is the identifier of the
 thread group corresponding to the affected inferior.  The optional
 @code{type="code"} part is reported if the memory written to holds
 executable code.
+
+@item =target-connected,type="@var{type}",name="@var{name}",features=[@var{features},...]
+@itemx =target-disconnected,type="@var{type}",name="@var{name}"
+Report that a target has been connected or disconnected.  The @var{type} is
+the internal target type, the @var{name} is a name of the target to be
+used for printing.  The @var{features} list connected target's features.
+See @ref{GDB/MI Support Commands} for existing target features.
 @end table
 
 @node GDB/MI Breakpoint Information

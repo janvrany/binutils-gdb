@@ -1160,8 +1160,8 @@ decref_target (target_ops *t)
     {
       if (t->stratum () == process_stratum)
 	connection_list_remove (as_process_stratum_target (t));
-      target_close (t);
       gdb::observers::target_disconnected.notify (t);
+      target_close (t);
     }
 }
 

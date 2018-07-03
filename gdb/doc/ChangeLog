@@ -1,3 +1,8 @@
+2021-02-10  Jan Vrany  <jan.vrany@labware.com>
+
+	* gdb.texinfo (GDB/MI Async Records): Document new async
+	records =target-connected and target-disconnected.
+
 2021-05-14  Tankut Baris Aktemur  <tankut.baris.aktemur@intel.com>
 
 	* python.texi (Inferiors In Python): Mention the 'connection_num'
