@@ -1,4 +1,33 @@
 2021-02-09  Didier Nadeau  <didier.nadeau@gmail.com>
+	    Jan Vrany  <jan.vrany@labware.com>
+
+	* mi/mi-cmds.c (create_mi_cmd): Remove.
+	(mi_command::mi_command): New function.
+	(mi_command::do_suppress_notification): New function.
+	(mi_command::invoke): New function.
+	(mi_command_mi::mi_command_mi): New function.
+	(mi_command_mi::do_invoke): New function.
+	(mi_command_cli::mi_command_cli): New function.
+	(mi_command_cli::do_invoke): New function.
+	(mi_cmd_lookup): Change return type.
+	* mi/mi-cmds.h (struct mi_cli): Remove.
+	(struct mi_cmd): Remove.
+	(class mi_command): New class.
+	(class mi_command_mi): New class.
+	(class mi_command_cli): New class.
+	(mi_cmd_loopkup): Change return type.
+	* mi/mi-main.c (mi_execute_cli_command): Remove declaration.
+	(mi_execute_command): Remove suppress_notification handling.
+	(mi_cmd_execute): Remove call to argv_func.
+	(mi_cmd_execute): Remove call to mi_execute_cli_command.
+	(mi_cmd_execute): New call to mi_command::invoke.
+	* mi/mi-main.h (mi_execute_cli_command): New declaration.
+	* mi/mi-parse.c (mi_parse): Remove call to mi_parse_argv.
+	* mi/mi-parse.h (struct mi_parse): Remove field struct mi_cmd.
+	(struct mi_parse): New field class mi_command.
+	(mi_parse_argv): New declaration.
+
+2021-02-09  Didier Nadeau  <didier.nadeau@gmail.com>
             Jan Vrany  <jan.vrany@labware.com>
 
         * mi/mi-cmds.h (mi_cmd_up): New typedef.
