@@ -1,3 +1,11 @@
+2021-02-09  Jan Vrany  <jan.vrany@labware.com>
+
+	* mi/mi-cmds.h (mi_command::can_be_redefined): New method.
+	* mi/mi-cmds.c: (mi_command::can_be_redefined): New method.
+	(insert_mi_cmd_entry): Allow redefinition of python-defined MI commands.
+	* python/py-micmd.h (mi_command_py::can_be_redefined): New method.
+	* python/py-micmd.c: (mi_command_py::can_be_redefined): New method.
+
 2021-02-09  Didier Nadeau  <didier.nadeau@gmail.com>
             Jan Vrany  <jan.vrany@labware.com>
 
