@@ -1,4 +1,27 @@
 2021-02-09  Didier Nadeau  <didier.nadeau@gmail.com>
+            Jan Vrany  <jan.vrany@labware.com>
+
+	* Makefile.in (SUBDIR_PYTHON_SRCS): Add py-micmd.c.
+	* mi/mi-cmds.c (insert_mi_cmd_entry): Remove static.
+	(mi_cmd_table): Remove static.
+	* mi/mi-cmds.h (insert_mi_cmd_entry): New declaration.
+	(mi_cmd_table): New declaration.
+	* python/py-micmd.c: New file
+	(parse_mi_result): New function.
+	(micmdpy_init): New function.
+	(gdbpy_initialize_micommands): New function.
+	(mi_command_py): New class.
+	* python/py-micmd.h: New file
+	(micmdpy_object): New struct.
+	(micmdpy_object): New typedef.
+	(mi_command_py): New class.
+	* python/python-internal.h
+	(gdbpy_initialize_micommands): New declaration.
+	* python/python.c
+	(_initialize_python): New call to gdbpy_initialize_micommands.
+	(finalize_python): Finalize Python MI commands.
+
+2021-02-09  Didier Nadeau  <didier.nadeau@gmail.com>
 	    Jan Vrany  <jan.vrany@labware.com>
 
 	* mi/mi-cmds.c (create_mi_cmd): Remove.
