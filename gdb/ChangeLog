@@ -1,3 +1,31 @@
+2021-02-09  Didier Nadeau  <didier.nadeau@gmail.com>
+            Jan Vrany  <jan.vrany@labware.com>
+
+        * mi/mi-cmds.h (mi_cmd_up): New typedef.
+        (mi_lookup): Rename to ...
+        (mi_cmd_lookup): this.
+        * mi/mi-cmds.c (_initialize_mi_cmds): Remove declaration.
+        (lookup_table): Remove declaration.
+        (build_table): Remove declaration.
+        (mi_table): Rename to ...
+        (mi_cmd_table): this and change to std::map.
+        (insert_mi_cmd_entry): New function.
+        (DEF_MI_CMD_CLI_1, DEF_MI_CMD_CLI, DEF_MI_CMD_MI,
+        DEF_MI_CMD_MI_1): Remove macros.
+        (mi_cmds): Remove array.
+        (mi_lookup): Rename to ...
+        (mi_cmd_lookup): this.
+        (create_mi_cmd): New function.
+        (struct mi_cmd_stats): Remove.
+        (stats): Remove.
+        (add_mi_cmd_cli, add_mi_cmd_mi): New functions.
+        (lookup_table): Remove.
+        (build_table): Remove parameter.
+        * mi/mi-parse.c (mi_parse): Change call from mi_lookup to
+        mi_cmd_lookup.
+        * mi/mi-cmd-info.c (mi_cmd_info_gdb_mi_command): Change call
+        from mi_lookup to mi_cmd_lookup.
+
 2021-05-14  Tankut Baris Aktemur  <tankut.baris.aktemur@intel.com>
 
 	* python/py-inferior.c (infpy_get_connection_num): New function.
