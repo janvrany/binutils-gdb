@@ -1,3 +1,9 @@
+2021-05-14  Jan Vrany  <jan.vrany@labware.com>
+
+	PR 20684
+	* gdb/mi/mi-main.c (mi_cmd_execute): Preserve user selected thread
+	and frame when invoking MI commands.
+
 2021-05-14  Tankut Baris Aktemur  <tankut.baris.aktemur@intel.com>
 
 	* python/py-inferior.c (infpy_get_connection_num): New function.

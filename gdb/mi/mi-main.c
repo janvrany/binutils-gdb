@@ -1976,25 +1976,13 @@ mi_execute_command (const char *cmd, int from_tty)
 	     again.  */
 	  && !command_notifies_uscc_observer (command.get ()))
 	{
-	  int report_change = 0;
-
-	  if (command->thread == -1)
-	    {
-	      report_change = (previous_ptid != null_ptid
-			       && inferior_ptid != previous_ptid
-			       && inferior_ptid != null_ptid);
-	    }
-	  else if (inferior_ptid != null_ptid)
-	    {
-	      struct thread_info *ti = inferior_thread ();
-
-	      report_change = (ti->global_num != command->thread);
-	    }
-
-	  if (report_change)
-	    {
-	      gdb::observers::user_selected_context_changed.notify
-		(USER_SELECTED_THREAD | USER_SELECTED_FRAME);
+	  if (command->thread == -1
+	      && previous_ptid != null_ptid
+	      && inferior_ptid != previous_ptid
+	      && inferior_ptid != null_ptid)
+            {
+              gdb::observers::user_selected_context_changed.notify
+                      (USER_SELECTED_THREAD | USER_SELECTED_FRAME);
 	    }
 	}
     }
@@ -2040,6 +2028,7 @@ mi_cmd_execute (struct mi_parse *parse)
       set_current_program_space (inf->pspace);
     }
 
+  gdb::optional<scoped_restore_current_thread> thread_saver;
   if (parse->thread != -1)
     {
       thread_info *tp = find_thread_global_id (parse->thread);
@@ -2050,9 +2039,16 @@ mi_cmd_execute (struct mi_parse *parse)
       if (tp->state == THREAD_EXITED)
 	error (_("Thread id: %d has terminated"), parse->thread);
 
+      /* The -thread-select and -select-frame are the only commands
+         that change the currently selected thread, so do not restore
+         thread after executing any of them.  */
+      if (parse->cmd->argv_func != mi_cmd_thread_select
+	  && parse->cmd->argv_func != mi_cmd_stack_select_frame)
+	thread_saver.emplace ();
       switch_to_thread (tp);
     }
 
+  gdb::optional<scoped_restore_selected_frame> frame_saver;
   if (parse->frame != -1)
     {
       struct frame_info *fid;
@@ -2060,8 +2056,15 @@ mi_cmd_execute (struct mi_parse *parse)
 
       fid = find_relative_frame (get_current_frame (), &frame);
       if (frame == 0)
-	/* find_relative_frame was successful */
-	select_frame (fid);
+        {
+          /* find_relative_frame was successful */
+
+	  /* -select-frame commands change the currently selected frame,
+	   * so do not restore thread after executing it.  */
+	  if (parse->cmd->argv_func != mi_cmd_stack_select_frame)
+	    frame_saver.emplace ();
+          select_frame (fid);
+        }
       else
 	error (_("Invalid frame id: %d"), frame);
     }
