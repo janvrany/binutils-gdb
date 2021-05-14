@@ -52,6 +52,7 @@
 #include <unordered_map>
 #include "target-connection.h"
 #include "valprint.h"
+#include "observable.h"
 
 static void generic_tls_error (void) ATTRIBUTE_NORETURN;
 
@@ -1159,6 +1160,7 @@ decref_target (target_ops *t)
     {
       if (t->stratum () == process_stratum)
 	connection_list_remove (as_process_stratum_target (t));
+      gdb::observers::target_disconnected.notify (t);
       target_close (t);
     }
 }
@@ -1178,13 +1180,18 @@ target_stack::push (target_ops *t)
   /* If there's already a target at this stratum, remove it.  */
 
   if (m_stack[stratum] != NULL)
-    unpush (m_stack[stratum]);
+    {
+      unpush (m_stack[stratum]);
+      gdb::observers::target_disconnected.notify (t);
+    }
 
   /* Now add the new one.  */
   m_stack[stratum] = t;
 
   if (m_top < stratum)
     m_top = stratum;
+
+  gdb::observers::target_connected.notify (t);
 }
 
 /* See target.h.  */
@@ -1223,7 +1230,7 @@ target_stack::unpush (target_ops *t)
      open if we have are other inferiors referencing this target
      still.  */
   decref_target (t);
-
+  
   return true;
 }
 

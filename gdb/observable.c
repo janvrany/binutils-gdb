@@ -77,6 +77,8 @@ DEFINE_OBSERVABLE (register_changed);
 DEFINE_OBSERVABLE (user_selected_context_changed);
 DEFINE_OBSERVABLE (source_styling_changed);
 DEFINE_OBSERVABLE (current_source_symtab_and_line_changed);
+DEFINE_OBSERVABLE (target_connected);
+DEFINE_OBSERVABLE (target_disconnected);
 
 } /* namespace observers */
 } /* namespace gdb */

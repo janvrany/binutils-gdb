@@ -42,6 +42,7 @@
 #include "thread-fsm.h"
 #include "cli/cli-interp.h"
 #include "gdbsupport/scope-exit.h"
+#include "target.h"
 
 /* These are the interpreter setup, etc. functions for the MI
    interpreter.  */
@@ -90,6 +91,9 @@ static void mi_command_param_changed (const char *param, const char *value);
 static void mi_memory_changed (struct inferior *inf, CORE_ADDR memaddr,
 			       ssize_t len, const bfd_byte *myaddr);
 static void mi_on_sync_execution_done (void);
+static void mi_target_connected (struct target_ops *target);
+static void mi_target_disconnected (struct target_ops *target);
+
 
 /* Display the MI prompt.  */
 
@@ -663,7 +667,7 @@ mi_on_normal_stop_1 (struct bpstats *bs, int print_frame)
       if (core != -1)
 	mi_uiout->field_signed ("core", core);
     }
-  
+
   fputs_unfiltered ("*stopped", mi->raw_stdout);
   mi_out_put (mi_uiout, mi->raw_stdout);
   mi_out_rewind (mi_uiout);
@@ -1266,6 +1270,73 @@ mi_user_selected_context_changed (user_selected_what selection)
     }
 }
 
+static void
+mi_target_connected (struct target_ops *target)
+{
+  SWITCH_THRU_ALL_UIS ()
+    {
+      struct mi_interp *mi = as_mi_interp (top_level_interpreter ());
+      struct ui_out *mi_uiout;
+
+      if (mi == NULL)
+        continue;
+
+      mi_uiout = top_level_interpreter ()->interp_ui_out ();
+
+      target_terminal::scoped_restore_terminal_state term_state;
+      target_terminal::ours_for_output ();
+
+      fprintf_unfiltered (mi->event_channel,"target-connected");
+
+      mi_uiout->redirect (mi->event_channel);
+
+      mi_uiout->field_string ("type", target->shortname());
+      mi_uiout->field_string ("name", target->longname());
+
+      {
+        ui_out_emit_list list_emitter (mi_uiout, "features");
+
+        if (mi_async_p ())
+          mi_uiout->field_string (NULL, "async");
+        if (target_can_execute_reverse ())
+          mi_uiout->field_string (NULL, "reverse");
+      }
+
+      mi_uiout->redirect (NULL);
+
+      gdb_flush (mi->event_channel);
+    }
+}
+
+static void
+mi_target_disconnected (struct target_ops *target)
+{
+  SWITCH_THRU_ALL_UIS ()
+    {
+      struct mi_interp *mi = as_mi_interp (top_level_interpreter ());
+      struct ui_out *mi_uiout;
+
+      if (mi == NULL)
+        continue;
+
+      mi_uiout = top_level_interpreter ()->interp_ui_out ();
+
+      target_terminal::scoped_restore_terminal_state term_state;
+      target_terminal::ours_for_output ();
+
+      fprintf_unfiltered (mi->event_channel, "target-disonnected");
+
+      mi_uiout->redirect (mi->event_channel);
+
+      mi_uiout->field_string ("type", target->shortname());
+      mi_uiout->field_string ("name", target->longname());
+
+      mi_uiout->redirect (NULL);
+
+      gdb_flush (mi->event_channel);
+    }
+}
+
 ui_out *
 mi_interp::interp_ui_out ()
 {
@@ -1374,4 +1445,6 @@ _initialize_mi_interp ()
 					      "mi-interp");
   gdb::observers::user_selected_context_changed.attach
     (mi_user_selected_context_changed, "mi-interp");
+  gdb::observers::target_connected.attach (mi_target_connected, "mi-interp");
+  gdb::observers::target_disconnected.attach (mi_target_disconnected, "mi-interp");
 }

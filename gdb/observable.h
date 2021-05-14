@@ -251,6 +251,12 @@ extern observable<> source_styling_changed;
 
 extern observable<> current_source_symtab_and_line_changed;
 
+/* A new target has been connected.  */
+extern observable<struct target_ops *> target_connected;
+
+/* A target has been disonnected.  */
+extern observable<struct target_ops *> target_disconnected;
+
 } /* namespace observers */
 
 } /* namespace gdb */

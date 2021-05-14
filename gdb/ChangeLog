@@ -1,3 +1,17 @@
+2021-02-10  Jan Vrany  <jan.vrany@labware.com>
+
+	* mi/mi-interp.c (mi_target_connected): New function.
+	(mi_target_disconnected): New function.
+	(_initialize_mi_interp): Register new observers.
+
+2021-02-10  Jan Vrany  <jan.vrany@labware.com>
+
+	* observable.h: Define new observables target_connected and
+	target_disconnected.
+	* observable.c: Likewise.
+	* target.c (target_stack::push, target_stack::unpush): Notify
+	observers of target_connected and target_disconnected
+
 2021-05-14  Jan Vrany  <jan.vrany@labware.com>
 
 	PR 20684
