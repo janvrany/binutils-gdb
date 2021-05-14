@@ -2034,8 +2034,8 @@ mi_cmd_execute (struct mi_parse *parse)
       /* The -thread-select and -select-frame are the only commands
          that change the currently selected thread, so do not restore
          thread after executing any of them.  */
-      if (parse->cmd->argv_func != mi_cmd_thread_select
-	  && parse->cmd->argv_func != mi_cmd_stack_select_frame)
+      if (parse->cmd->name() != "thread-select"
+	  && parse->cmd->name() != "stack-select-frame")
 	thread_saver.emplace ();
       switch_to_thread (tp);
     }
@@ -2053,7 +2053,7 @@ mi_cmd_execute (struct mi_parse *parse)
 
 	  /* -select-frame commands change the currently selected frame,
 	   * so do not restore thread after executing it.  */
-	  if (parse->cmd->argv_func != mi_cmd_stack_select_frame)
+	  if (parse->cmd->name() != "stack-select-frame")
 	    frame_saver.emplace ();
           select_frame (fid);
         }
