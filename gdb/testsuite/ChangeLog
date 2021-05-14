@@ -1,3 +1,8 @@
+2021-02-09  Jan Vrany  <jan.vrany@labware.com>
+
+	* gdb.python/py-mi-cmd.exp: New file.
+	* gdb.python/py-mi-cmd.py: New file.
+
 2021-02-10  Jan Vrany  <jan.vrany@labware.com>
 
 	* gdb.mi/mi-target.exp: New file.

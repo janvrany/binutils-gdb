@@ -35,6 +35,8 @@
 #include <ctype.h>
 #include "location.h"
 #include "run-on-main-thread.h"
+#include "mi/mi-cmds.h"
+#include "py-micmd.h"
 
 /* Declared constants and enum for python stack printing.  */
 static const char python_excp_none[] = "none";
@@ -1685,6 +1687,14 @@ finalize_python (void *ignore)
   python_gdbarch = target_gdbarch ();
   python_language = current_language;
 
+  for (const auto& name_and_cmd : mi_cmd_table)
+    {
+      mi_command *cmd = name_and_cmd.second.get ();
+      mi_command_py *cmd_py = dynamic_cast<mi_command_py*> (cmd);
+      if (cmd_py != nullptr)
+        cmd_py->finalize ();
+    }
+
   Py_Finalize ();
 
   gdb_python_initialized = false;
@@ -1839,7 +1849,8 @@ do_start_initialization ()
       || gdbpy_initialize_registers () < 0
       || gdbpy_initialize_xmethods () < 0
       || gdbpy_initialize_unwind () < 0
-      || gdbpy_initialize_tui () < 0)
+      || gdbpy_initialize_tui () < 0
+      || gdbpy_initialize_micommands () < 0)
     return false;
 
 #define GDB_PY_DEFINE_EVENT_TYPE(name, py_name, doc, base)	\

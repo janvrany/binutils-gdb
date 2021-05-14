@@ -1,3 +1,91 @@
+2021-02-09  Jan Vrany  <jan.vrany@labware.com>
+
+	* mi/mi-cmds.h (mi_command::can_be_redefined): New method.
+	* mi/mi-cmds.c: (mi_command::can_be_redefined): New method.
+	(insert_mi_cmd_entry): Allow redefinition of python-defined MI commands.
+	* python/py-micmd.h (mi_command_py::can_be_redefined): New method.
+	* python/py-micmd.c: (mi_command_py::can_be_redefined): New method.
+
+2021-02-09  Didier Nadeau  <didier.nadeau@gmail.com>
+            Jan Vrany  <jan.vrany@labware.com>
+
+	* Makefile.in (SUBDIR_PYTHON_SRCS): Add py-micmd.c.
+	* mi/mi-cmds.c (insert_mi_cmd_entry): Remove static.
+	(mi_cmd_table): Remove static.
+	* mi/mi-cmds.h (insert_mi_cmd_entry): New declaration.
+	(mi_cmd_table): New declaration.
+	* python/py-micmd.c: New file
+	(parse_mi_result): New function.
+	(micmdpy_init): New function.
+	(gdbpy_initialize_micommands): New function.
+	(mi_command_py): New class.
+	* python/py-micmd.h: New file
+	(micmdpy_object): New struct.
+	(micmdpy_object): New typedef.
+	(mi_command_py): New class.
+	* python/python-internal.h
+	(gdbpy_initialize_micommands): New declaration.
+	* python/python.c
+	(_initialize_python): New call to gdbpy_initialize_micommands.
+	(finalize_python): Finalize Python MI commands.
+
+2021-02-09  Didier Nadeau  <didier.nadeau@gmail.com>
+	    Jan Vrany  <jan.vrany@labware.com>
+
+	* mi/mi-cmds.c (create_mi_cmd): Remove.
+	(mi_command::mi_command): New function.
+	(mi_command::do_suppress_notification): New function.
+	(mi_command::invoke): New function.
+	(mi_command_mi::mi_command_mi): New function.
+	(mi_command_mi::do_invoke): New function.
+	(mi_command_cli::mi_command_cli): New function.
+	(mi_command_cli::do_invoke): New function.
+	(mi_cmd_lookup): Change return type.
+	* mi/mi-cmds.h (struct mi_cli): Remove.
+	(struct mi_cmd): Remove.
+	(class mi_command): New class.
+	(class mi_command_mi): New class.
+	(class mi_command_cli): New class.
+	(mi_cmd_loopkup): Change return type.
+	* mi/mi-main.c (mi_execute_cli_command): Remove declaration.
+	(mi_execute_command): Remove suppress_notification handling.
+	(mi_cmd_execute): Remove call to argv_func.
+	(mi_cmd_execute): Remove call to mi_execute_cli_command.
+	(mi_cmd_execute): New call to mi_command::invoke.
+	* mi/mi-main.h (mi_execute_cli_command): New declaration.
+	* mi/mi-parse.c (mi_parse): Remove call to mi_parse_argv.
+	* mi/mi-parse.h (struct mi_parse): Remove field struct mi_cmd.
+	(struct mi_parse): New field class mi_command.
+	(mi_parse_argv): New declaration.
+
+2021-02-09  Didier Nadeau  <didier.nadeau@gmail.com>
+            Jan Vrany  <jan.vrany@labware.com>
+
+        * mi/mi-cmds.h (mi_cmd_up): New typedef.
+        (mi_lookup): Rename to ...
+        (mi_cmd_lookup): this.
+        * mi/mi-cmds.c (_initialize_mi_cmds): Remove declaration.
+        (lookup_table): Remove declaration.
+        (build_table): Remove declaration.
+        (mi_table): Rename to ...
+        (mi_cmd_table): this and change to std::map.
+        (insert_mi_cmd_entry): New function.
+        (DEF_MI_CMD_CLI_1, DEF_MI_CMD_CLI, DEF_MI_CMD_MI,
+        DEF_MI_CMD_MI_1): Remove macros.
+        (mi_cmds): Remove array.
+        (mi_lookup): Rename to ...
+        (mi_cmd_lookup): this.
+        (create_mi_cmd): New function.
+        (struct mi_cmd_stats): Remove.
+        (stats): Remove.
+        (add_mi_cmd_cli, add_mi_cmd_mi): New functions.
+        (lookup_table): Remove.
+        (build_table): Remove parameter.
+        * mi/mi-parse.c (mi_parse): Change call from mi_lookup to
+        mi_cmd_lookup.
+        * mi/mi-cmd-info.c (mi_cmd_info_gdb_mi_command): Change call
+        from mi_lookup to mi_cmd_lookup.
+
 2021-02-10  Jan Vrany  <jan.vrany@labware.com>
 
 	* mi/mi-interp.c (mi_target_connected): New function.
