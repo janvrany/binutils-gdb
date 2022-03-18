@@ -881,6 +881,13 @@ public:
      mechanism as ELF should set this flag too.  This flag is used in
      conjunction with the minimal_symbol::maybe_copied method.  */
   bool object_format_has_copy_relocs = false;
+
+  /* Return true if this objfile is dynamic (created by JIT reader API or
+     by from Python by instantiating gdb.Objfile object).  */
+  bool is_dynamic() const
+  {
+    return this->obfd == nullptr;
+  }  
 };
 
 /* A deleter for objfile.  */
