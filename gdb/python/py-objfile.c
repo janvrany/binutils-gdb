@@ -26,6 +26,7 @@
 #include "symtab.h"
 #include "python.h"
 #include "inferior.h"
+#include "observable.h"
 
 struct objfile_object
 {
@@ -757,6 +758,32 @@ objfile_object_to_objfile (PyObject *obj)
   if (! PyObject_TypeCheck (obj, &objfile_object_type))
     return nullptr;
   return ((objfile_object *) obj)->objfile;
+}
+
+/* This function remove any dynamic objfiles left over when the
+   inferior exits.  */
+
+static void
+objfpy_inferior_exit_hook (struct inferior *inf)
+{
+  for (objfile *objf : current_program_space->objfiles_safe ())
+    {
+      if (objf->is_dynamic ())
+	{
+	  /* Following check is to only unlink dynamic objfiles created by
+	     Python code.  Dynamic objfiles created by JIT reader API are
+	     unlinked in jit_inferior_exit_hook ().  */
+	  if (objf->jited_data == nullptr || objf->jited_data->addr != 0)
+	    objf->unlink ();
+	}
+    }
+}
+
+void _initialize_py_objfile ();
+void
+_initialize_py_objfile ()
+{
+  gdb::observers::inferior_exit.attach (objfpy_inferior_exit_hook, "py-objfile");
 }
 
 static int CPYCHECKER_NEGATIVE_RESULT_SETS_EXCEPTION
