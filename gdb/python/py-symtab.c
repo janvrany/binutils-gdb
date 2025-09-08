@@ -90,6 +90,8 @@ static const gdbpy_registry<gdbpy_tracking_registry_storage<sal_object,
 	}								\
   } while (0)
 
+static void set_symtab (symtab_object *obj, struct symtab *symtab);
+
 static PyObject *
 stpy_str (PyObject *self)
 {
@@ -231,6 +233,46 @@ stpy_get_linetable (PyObject *self, PyObject *args)
   STPY_REQUIRE_VALID (self, symtab);
 
   return symtab_to_linetable_object (self);
+}
+
+/* Object initializer; creates new symtab.
+
+   Use: __init__(FILENAME, COMPUNIT).  */
+
+static int
+stpy_init (PyObject *zelf, PyObject *args, PyObject *kw)
+{
+  struct symtab_object *self = (struct symtab_object*) zelf;
+
+  if (self->symtab)
+    {
+      PyErr_Format (PyExc_RuntimeError,
+		    _("Symtab object already initialized."));
+      return -1;
+    }
+
+   static const char *keywords[] = { "filename", "compunit", nullptr };
+   const char *filename;
+   PyObject *cu_obj;
+
+   if (!gdb_PyArg_ParseTupleAndKeywords (args, kw, "sO", keywords,
+					 &filename, &cu_obj))
+    return -1;
+
+
+  compunit_symtab *cu = compunit_object_to_compunit (cu_obj);
+  if (cu == nullptr)
+    {
+      PyErr_Format (PyExc_TypeError,
+		    _("The compunit argument is not valid gdb.Compunit "
+		      "object"));
+      return -1;
+    }
+
+  struct symtab *symtab = allocate_symtab (cu, filename);
+  set_symtab (self, symtab);
+
+  return 0;
 }
 
 static PyObject *
@@ -436,7 +478,6 @@ symtab_object_to_symtab (PyObject *obj)
 static int
 gdbpy_initialize_symtabs ()
 {
-  symtab_object_type.tp_new = PyType_GenericNew;
   if (gdbpy_type_ready (&symtab_object_type) < 0)
     return -1;
 
@@ -512,7 +553,15 @@ PyTypeObject symtab_object_type = {
   0,				  /*tp_iternext */
   symtab_object_methods,	  /*tp_methods */
   0,				  /*tp_members */
-  symtab_object_getset		  /*tp_getset */
+  symtab_object_getset,		  /*tp_getset */
+  0,				  /*tp_base */
+  0,				  /*tp_dict */
+  0,				  /*tp_descr_get */
+  0,				  /*tp_descr_set */
+  0,                              /*tp_dictoffset */
+  stpy_init,	                  /*tp_init */
+  0,				  /*tp_alloc */
+  PyType_GenericNew,		  /*tp_new */
 };
 
 static gdb_PyGetSetDef sal_object_getset[] = {
