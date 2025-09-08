@@ -378,6 +378,41 @@ ltpy_entry_get_epilogue_begin (PyObject *self, void *closure)
     Py_RETURN_FALSE;
 }
 
+/* Object initializer; creates new linetable entry.
+
+   Use: __init__(LINE, PC, IS_STMT, PROLOGUE_END, EPILOGUE_BEGIN).  */
+
+static int
+ltpy_entry_init (PyObject *zelf, PyObject *args, PyObject *kw)
+{
+  linetable_entry_object *self = (linetable_entry_object *) zelf;
+
+   static const char *keywords[] = { "line", "pc", "is_stmt", "prologue_end",
+				     "epilogue_begin", nullptr };
+   int line = 0;
+   CORE_ADDR pc = 0;
+   int is_stmt = 0;
+   int prologue_end = 0;
+   int epilogue_begin = 0;
+
+   if (!gdb_PyArg_ParseTupleAndKeywords (args, kw, "iK|ppp",
+	  keywords,
+	  &line,
+	  &pc,
+	  &is_stmt,
+	  &prologue_end,
+	  &epilogue_begin))
+    return -1;
+
+   self->line = line;
+   self->pc = pc;
+   self->is_stmt = is_stmt == 1 ? true : false;
+   self->prologue_end = prologue_end == 1 ? true : false;
+   self->epilogue_begin = epilogue_begin == 1 ? true : false;
+
+   return 0;
+}
+
 /* LineTable iterator functions.  */
 
 /* Return a new line table iterator.  */
@@ -638,6 +673,7 @@ PyTypeObject linetable_entry_object_type = {
   0,				  /* tp_descr_get */
   0,				  /* tp_descr_set */
   0,				  /* tp_dictoffset */
-  0,	                          /* tp_init */
+  ltpy_entry_init,		  /* tp_init */
   0,				  /* tp_alloc */
+  PyType_GenericNew,		  /* tp_new */
 };
