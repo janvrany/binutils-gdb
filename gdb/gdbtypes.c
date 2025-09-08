@@ -44,6 +44,7 @@
 #include "rust-lang.h"
 #include "ada-lang.h"
 #include "extract-store-integer.h"
+#include "typeprint.h"
 
 /* The value of an invalid conversion badness.  */
 #define INVALID_CONVERSION 100
@@ -580,8 +581,7 @@ create_function_type (type_allocator &alloc,
 	  --nparams;
 	  fn->set_has_varargs (true);
 	}
-      else if (check_typedef (param_types[nparams - 1])->code ()
-	       == TYPE_CODE_VOID)
+      else if ((param_types[nparams - 1])->is_void ())
 	{
 	  --nparams;
 	  /* Caller should have ensured this.  */
@@ -6000,6 +6000,13 @@ type::is_array_like ()
   return defn->is_array_like (this);
 }
 
+/* See gdbtypes.h.  */
+
+bool
+type::is_void ()
+{
+  return check_typedef (this)->code () == TYPE_CODE_VOID;
+}
 
 
 static const registry<gdbarch>::key<struct builtin_type> gdbtypes_data;

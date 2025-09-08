@@ -1531,6 +1531,9 @@ struct type
      representations of arrays by the type's language.  */
   bool is_array_like ();
 
+  /* Return true if this type is "void".  Follows typedefs. */
+  bool is_void ();
+
   /* Return the language that this type came from.  */
   enum language language () const
   { return main_type->m_lang; }

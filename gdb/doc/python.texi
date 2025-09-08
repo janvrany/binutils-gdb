@@ -1622,6 +1622,17 @@ Return a new @code{gdb.Type} object which represents a pointer to this
 type.
 @end defun
 
+@defun Type.function (@r{[}param_type@dots{}@r{]}, @r{[}varargs@r{]})
+Return a new @code{gdb.Type} object which represents a type of function
+returning this type.  Returned function type is always marked as prototyped.
+
+@var{param_type@dots{}} positional-only arguments specify parameter types.
+Passing @code{void} type is not allowed.
+
+The optional @var{varargs} keyword-only argument specifies whether to create
+vararg function type.  Defaults to @code{False}.
+@end defun
+
 @defun Type.strip_typedefs ()
 Return a new @code{gdb.Type} that represents the real type,
 after removing all layers of typedefs.
