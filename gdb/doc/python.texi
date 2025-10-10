@@ -5996,6 +5996,14 @@ Return a sequence of @code{gdb.Compunit} associated with this objfile.
 @xref{Compunits In Python}.
 @end defun
 
+@defun Objfile.remove ()
+Unload this objfile from @value{GDBN}.  Symbol table information associated
+with this objfile is discarded.
+
+One particular use of @code{Objfile.remove} is to remove objfile created for
+dynamic code when dynamic code gets discarded.
+@end defun
+
 @node Frames In Python
 @subsubsection Accessing inferior stack frames from Python
 
