@@ -807,6 +807,23 @@ blockvector::append_block (struct block *block)
 
 /* See block.h.  */
 
+void
+blockvector::insert_block (struct block *block)
+{
+  if (num_blocks () <= FIRST_LOCAL_BLOCK)
+    append_block (block);
+  else
+    {
+      auto first = m_blocks.begin () + FIRST_LOCAL_BLOCK;
+      auto last = m_blocks.end ();
+      auto insert_before = std::upper_bound (first, last, block,
+					     block_less_than);
+      m_blocks.insert (insert_before, block);
+    }
+}
+
+/* See block.h.  */
+
 const struct block *
 blockvector::lookup (CORE_ADDR addr) const
 {

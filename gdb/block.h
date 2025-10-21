@@ -513,6 +513,13 @@ struct blockvector
      blocks are appended in correct order.  */
   void append_block (struct block *block);
 
+  /* Insert single BLOCK into the blockvector at correct place.  Callers
+     should avoid calling this to build a blockvector as this may cause
+     extensive moves if blocks are inserted in the middle.  A better approach
+     is to sort blocks first using blockvector::block_less_than and then
+     call append_block.  */
+  void insert_block (struct block *block);
+
   /* Lookup the innermost lexical block containing ADDR.  Returns the block
      if there is one, NULL otherwise.  */
   const struct block *lookup (CORE_ADDR addr) const;
