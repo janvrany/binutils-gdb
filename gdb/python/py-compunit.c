@@ -17,6 +17,7 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
+#include <algorithm>
 #include "charset.h"
 #include "symtab.h"
 #include "source.h"
@@ -198,6 +199,104 @@ set_compunit (compunit_object *obj, struct compunit_symtab *compunit)
   Py_INCREF (obj);
 }
 
+/* Object initializer; creates a new compunit.
+
+   Use: __init__(FILENAME, OBJFILE, START, END [, CAPACITY]).  */
+
+static int
+cupy_init (PyObject *zelf, PyObject *args, PyObject *kw)
+{
+  struct compunit_object *self = (struct compunit_object*) zelf;
+
+  if (self->compunit)
+    {
+      PyErr_Format (PyExc_RuntimeError,
+		    _("Compunit object already initialized."));
+      return -1;
+    }
+
+  static const char *keywords[] = { "filename", "objfile", "start", "end",
+				    "capacity", nullptr };
+  const char *filename;
+  PyObject *objf_obj = nullptr;
+  uint64_t start = 0;
+  uint64_t end = 0;
+  uint64_t capacity = 8;
+
+
+  if (!gdb_PyArg_ParseTupleAndKeywords (args, kw, "sOKK|K", keywords,
+					&filename, &objf_obj, &start, &end,
+					&capacity))
+    return -1;
+
+  auto objf = objfile_object_to_objfile (objf_obj);
+  if (! objf)
+    {
+      PyErr_Format (PyExc_TypeError,
+		    _("The objfile argument is not a valid gdb.Objfile "
+		      "object"));
+      return -1;
+    }
+
+  /* Check that start-end range is valid.  */
+  if (! (start <= end))
+    {
+      PyErr_Format (PyExc_ValueError,
+		    _("The start argument must be less or equal to the end "
+		      "argument"));
+      return -1;
+
+    }
+
+  /* Check that to-be created compunit does not overlap any other existing
+     existing compunit.  We have to make sure that all possibly overlapping
+     compunits are fully expanded before, though.  */
+
+  for (struct objfile &of : objf->pspace ()->objfiles_safe ())
+    {
+      if (of.has_unexpanded_symtabs ())
+	of.expand_symtabs_maybe_overlapping (start, end);
+
+      for (const compunit_symtab &cu : of.compunits ())
+	{
+	  if (cu.maybe_overlaps (start, end))
+	    {
+	      PyErr_Format (PyExc_ValueError,
+		    _("The start-end range may overlap with existing "
+		      "compunit"));
+	      return -1;
+	    }
+	}
+    }
+
+  auto bv = std::make_unique<blockvector> (FIRST_LOCAL_BLOCK);
+  auto cu = std::make_unique<compunit_symtab> (objf, filename);
+  cu->set_dirname (nullptr);
+
+  /* Allocate global block. */
+  global_block *gb = new (&objf->objfile_obstack) global_block ();
+  gb->set_multidict (mdict_create_linear_expandable (language_minimal));
+  gb->set_start ((CORE_ADDR) start);
+  gb->set_end ((CORE_ADDR) end);
+  gb->set_compunit (cu.get ());
+  bv->set_block (GLOBAL_BLOCK, gb);
+
+  /* Allocate static block.  */
+  struct block *sb = new (&objf->objfile_obstack) block ();
+  sb->set_multidict (mdict_create_linear_expandable (language_minimal));
+  sb->set_start ((CORE_ADDR) start);
+  sb->set_end ((CORE_ADDR) end);
+  sb->set_superblock (gb);
+  bv->set_block (STATIC_BLOCK, sb);
+
+  cu->set_blockvector (std::move (bv));
+
+  set_compunit(self, cu.get ());
+  add_compunit_symtab_to_objfile (std::move (cu));
+
+  return 0;
+}
+
 /* Return a new reference to gdb.Compunit Python object representing
    COMPUNIT.  Return NULL and set the Python error on failure.  */
 PyObject *
@@ -305,7 +404,7 @@ PyTypeObject compunit_object_type = {
   0,				  /* tp_descr_get */
   0,				  /* tp_descr_set */
   0,				  /* tp_dictoffset */
-  0,				  /* tp_init */
+  cupy_init,                      /* tp_init */
   0,				  /* tp_alloc */
   PyType_GenericNew		  /* tp_new */
 };

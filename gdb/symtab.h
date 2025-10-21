@@ -1967,6 +1967,11 @@ struct compunit_symtab : intrusive_list_node<compunit_symtab>
   /* True if ADDR is in this compunit_symtab, false otherwise.  */
   bool contains (CORE_ADDR addr) const;
 
+  /* True, if given address range [START, END) may overlap with
+     addresses covered by this compunit.  Return false if given
+     range definitely does not overlap.  */
+  bool maybe_overlaps (CORE_ADDR start, CORE_ADDR end) const;
+
   /* Object file from which this symtab information was read.  */
   struct objfile *m_objfile;
 

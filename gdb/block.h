@@ -23,6 +23,7 @@
 #include "dictionary.h"
 #include "gdbsupport/array-view.h"
 #include "gdbsupport/next-iterator.h"
+#include "gdbsupport/range.h"
 
 /* Opaque declarations.  */
 
@@ -320,6 +321,14 @@ struct block : public allocate_on_obstack<block>
      to use.  */
   void relocate (struct objfile *objfile,
 		 gdb::array_view<const CORE_ADDR> offsets);
+
+  /* Return true if this block's range overlap with [L, H) range.  Return
+     false otherwise.  */
+
+  bool overlaps (CORE_ADDR l, CORE_ADDR h) const
+  {
+    return ranges_overlap (l, h, start (), end ());
+  }
 
 private:
 
