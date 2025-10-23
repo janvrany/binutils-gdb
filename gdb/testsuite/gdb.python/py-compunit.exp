@@ -1,0 +1,83 @@
+# Copyright (C) 2025-2025 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# This file is part of the GDB testsuite.  It tests the compunit
+# support in Python.
+
+load_lib gdb-python.exp
+
+require allow_python_tests
+
+# The test executable is compiled using two source files and uses custom
+# linker script. This is to force creation of two interleaved compunits
+# (py-compunit-1.c) with one function (main) and the other (py-compunit-2.c)
+# with two functions (get_me_one and get_me_zero) which are placed "before"
+# and "after" the main function.
+
+standard_testfile py-compunit-1.c py-compunit-2.c
+
+set ld_flags "-static -T${srcdir}/${subdir}/py-compunit.link"
+if { [prepare_for_testing "failed to prepare" ${testfile} \
+	[list $srcfile $srcfile2] \
+	[list debug additional_flags=$ld_flags]]} {
+    return -1
+}
+
+if {![runto_main]} {
+    return 0
+}
+
+set python_error_text "Error occurred in Python.*"
+
+gdb_py_test_silent_cmd "python sym = gdb.lookup_symbol(\"main\")" \
+    "Find a symbol in objfile" 1
+gdb_py_test_silent_cmd "python objfile = sym\[0\].symtab.objfile" \
+    "Get backing object file" 1
+
+gdb_test "python print (len(objfile.compunits()) > 0)" \
+    "True" \
+    "Get objfile compunits"
+gdb_test "python print (objfile.compunits())" \
+    "\\\[<gdb\.Compunit object at .*>\\\]" \
+    "Objfile compunits return a sequence of gdb.Compunit"
+gdb_py_test_silent_cmd "python compunit = objfile.compunits()\[0\]" \
+    "Get first compunit" 1
+gdb_test "python print (compunit.is_valid())" \
+    "True" \
+    "Compunit is valid"
+gdb_test "python print (compunit == compunit)" \
+    "True" \
+    "Compunits are comparable"
+gdb_test "python print (compunit is objfile.compunits()\[0\])" \
+    "True" \
+    "Compunits are identical"
+gdb_test "python print (len(objfile.compunits()\[0\].symtabs) > 0)" \
+    "True" \
+    "Get compunit symtabs"
+gdb_test "python print (objfile.compunits()\[0\].symtabs)" \
+    "\\\[<gdb\.Symtab.*>\\\]" \
+    "Compunit symtabs return a sequence of gdb.Symtab"
+
+
+gdb_unload "unload 1"
+
+gdb_test "python print (objfile.is_valid())" "False" \
+"Get objfile validity after unload"
+gdb_test "python print (compunit.is_valid())" "False" \
+"Get compunit validity after unload"
+gdb_py_test_silent_cmd "python compunit = None" \
+"Test compunit deallocation" 1
+gdb_test "python print (objfile.compunits())" "RuntimeError.*: Objfile no longer exists.*" \
+"Get objfile compunits after unload"
