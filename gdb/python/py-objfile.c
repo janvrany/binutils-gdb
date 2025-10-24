@@ -677,7 +677,7 @@ objfpy_expand_symtabs_maybe_overlapping (PyObject *self, PyObject *args,
   if (list == nullptr)
     return nullptr;
 
-  self->objfile->expand_all_symtabs ();
+  //self->objfile->expand_all_symtabs ();
 
   for (struct compunit_symtab &compunit : self->objfile->compunits ())
     {
