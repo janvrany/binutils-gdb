@@ -639,10 +639,35 @@ objfpy_repr (PyObject *self_)
 			       objfile_name (obj));
 }
 
-/* Implementation of gdb.Objfile.compunits() -> List  */
+/* Implementation of 
+   gdb.Objfile.expand_symtabs_maybe_overlapping (start, end) -> None  */
 
 static PyObject *
-objfpy_compunits (PyObject *self_, PyObject *args)
+objfpy_expand_symtabs_maybe_overlapping (PyObject *self, PyObject *args,
+					 PyObject *kw)
+{
+  objfile_object *obj = (objfile_object *) self;
+
+  OBJFPY_REQUIRE_VALID (obj);
+
+  static const char *keywords[] = { "start", "end", nullptr };
+  uint64_t start = 0;
+  uint64_t end = 0;
+
+  if (!gdb_PyArg_ParseTupleAndKeywords (args, kw, "KK", keywords,
+					&start, &end))
+    return nullptr;
+
+  obj->objfile->expand_symtabs_maybe_overlapping ((CORE_ADDR) start,
+						  (CORE_ADDR) end);
+
+  Py_RETURN_NONE;
+}
+
+  /* Implementation of gdb.Objfile.compunits() -> List  */
+
+  static PyObject *
+  objfpy_compunits (PyObject *self_, PyObject *args)
 {
   objfile_object *self = (objfile_object *) self_;
 
@@ -902,6 +927,12 @@ Return a sequence of compunits associated to this objfile." },
   { "remove", objfpy_remove, METH_NOARGS,
     "remove () -> None.\n\
 Unload this objfile." },
+
+  { "expand_symtabs_maybe_overlapping", 
+    (PyCFunction) objfpy_expand_symtabs_maybe_overlapping, 
+    METH_VARARGS | METH_KEYWORDS,
+    "expand_symtabs_maybe_overlapping (start, end) -> None.\n\
+Expand all symtabs overlapping with range [start, end)." },
 
   { NULL }
 };
