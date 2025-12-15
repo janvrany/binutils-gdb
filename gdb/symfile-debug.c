@@ -372,6 +372,22 @@ objfile::expand_all_symtabs ()
     iter->expand_all_symtabs (this);
 }
 
+/* See objfiles.h.  */
+
+void
+objfile::expand_symtabs_maybe_overlapping (CORE_ADDR start, CORE_ADDR end)
+{
+  if (debug_symfile)
+    gdb_printf (gdb_stdlog,
+		"qf->expand_symtabs_maybe_overlapping (%s, %s, %s)\n",
+		objfile_debug_name (this),
+		hex_string (start),
+		hex_string (end));
+
+  for (const auto &iter : qf)
+    iter->expand_symtabs_maybe_overlapping (this, start, end);
+}
+
 void
 objfile::expand_symtabs_with_fullname (const char *fullname)
 {

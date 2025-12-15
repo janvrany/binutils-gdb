@@ -26,6 +26,7 @@
 #include "addrmap.h"
 #include "gdbsupport/iterator-range.h"
 #include "gdbsupport/string-set.h"
+#include "gdbsupport/range.h"
 
 /* An index of interesting DIEs.  This is "cooked", in contrast to a
    mapped .debug_names or .gdb_index, which are "raw".  An entry in
@@ -98,6 +99,10 @@ private:
 
     return (static_cast<dwarf2_per_cu *> (m_addrmap->find ((CORE_ADDR) addr)));
   }
+
+  /* Look up all CUs that overlap with range [START, END).  */
+  std::vector<dwarf2_per_cu *> lookup_overlapping (unrelocated_addr start,
+						   unrelocated_addr end);
 
   /* Create a new cooked_index_entry and register it with this object.
      Entries are owned by this object.  The new item is returned.  */

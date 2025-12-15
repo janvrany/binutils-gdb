@@ -344,3 +344,37 @@ cooked_index_shard::find (const std::string &name, bool completing) const
 				     ? cooked_index_entry::COMPLETE
 				     : cooked_index_entry::MATCH) }));
 }
+
+/* See cooked-index-shard.h.  */
+
+std::vector<dwarf2_per_cu *>
+cooked_index_shard::lookup_overlapping (unrelocated_addr start,
+					unrelocated_addr end)
+  {
+    std::vector<dwarf2_per_cu *> result;
+
+    CORE_ADDR start_addr = (CORE_ADDR)start;
+    CORE_ADDR end_addr = (CORE_ADDR)end;
+    CORE_ADDR prev_addr = 0;
+    void *prev_obj = nullptr;
+
+    if (m_addrmap != nullptr)
+      m_addrmap->foreach  ([&] (CORE_ADDR curr_addr, void *curr_obj) -> int
+      {
+	if (curr_addr >= end_addr)
+	  return 1;
+
+	if (curr_addr != 0
+	    && prev_obj != nullptr
+	    && ranges_overlap (start_addr, end_addr, prev_addr, curr_addr-1))
+	  {
+	    result.push_back (static_cast<dwarf2_per_cu *> (prev_obj));
+	  }
+	prev_addr = curr_addr;
+	prev_obj = curr_obj;
+
+	return 0;
+      });
+
+    return result;
+  }

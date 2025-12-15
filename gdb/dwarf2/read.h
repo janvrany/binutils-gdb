@@ -1416,4 +1416,13 @@ extern struct dwarf2_section_info *get_debug_line_section
 extern bool is_ada_import_or_export (dwarf2_cu *cu, const char *name,
 				     const char *linkagename);
 
+/* Ensure that the symbols for PER_CU have been read in.  DWARF2_PER_OBJFILE is
+   the per-objfile for which this symtab is instantiated.
+
+   Returns the resulting symbol table.  */
+
+extern struct compunit_symtab *
+dw2_instantiate_symtab (dwarf2_per_cu *per_cu, dwarf2_per_objfile *per_objfile,
+			bool skip_partial);
+
 #endif /* GDB_DWARF2_READ_H */

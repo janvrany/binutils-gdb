@@ -618,6 +618,9 @@ public:
   void expand_symtabs_with_fullname (const char *fullname);
 
   /* See quick_symbol_functions.  */
+  void expand_symtabs_maybe_overlapping (CORE_ADDR start, CORE_ADDR end);
+
+  /* See quick_symbol_functions.  */
   bool search
     (search_symtabs_file_matcher file_matcher,
      const lookup_name_info *lookup_name,

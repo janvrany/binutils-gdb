@@ -628,6 +628,9 @@ struct psymbol_functions : public quick_symbol_functions
 
   void expand_all_symtabs (struct objfile *objfile) override;
 
+  virtual void expand_symtabs_maybe_overlapping (struct objfile *objfile,
+	CORE_ADDR start, CORE_ADDR end) override;
+
   bool search
     (struct objfile *objfile,
      search_symtabs_file_matcher file_matcher,

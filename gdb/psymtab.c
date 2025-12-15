@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <set>
 #include "gdbsupport/buildargv.h"
+#include "gdbsupport/range.h"
 
 static const struct partial_symbol *lookup_partial_symbol
      (struct objfile *, struct partial_symtab *, const lookup_name_info &,
@@ -728,6 +729,26 @@ psymbol_functions::expand_all_symtabs (struct objfile *objfile)
 {
   for (partial_symtab *psymtab : partial_symbols (objfile))
     psymtab_to_symtab (objfile, psymtab);
+}
+
+/* Psymtab version of expand_symtabs_maybe_overlapping.  See its definition in
+   the definition of quick_symbol_functions in symfile.h.  */
+
+void
+psymbol_functions::expand_symtabs_maybe_overlapping
+  (struct objfile *objfile, CORE_ADDR start, CORE_ADDR end)
+{
+  for (partial_symtab *psymtab : partial_symbols (objfile))
+    {
+      if (psymtab->text_low_valid && psymtab->text_high_valid)
+	{
+	  CORE_ADDR text_low = psymtab->text_low (objfile);
+	  CORE_ADDR text_high = psymtab->text_high (objfile);
+
+	  if (ranges_overlap (start, end, text_low, text_high))
+	    psymtab_to_symtab (objfile, psymtab);
+	}
+    }
 }
 
 /* Psymtab version of map_symbol_filenames.  See its definition in

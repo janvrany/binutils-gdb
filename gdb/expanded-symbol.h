@@ -61,6 +61,12 @@ struct expanded_symbols_functions : public quick_symbol_functions
   {
   }
 
+  void expand_symtabs_maybe_overlapping (struct objfile *objfile,
+					 CORE_ADDR start,
+					 CORE_ADDR end) override
+  {
+  }
+
   bool search (struct objfile *objfile,
 	       search_symtabs_file_matcher file_matcher,
 	       const lookup_name_info *lookup_name,
