@@ -535,6 +535,7 @@ struct symtab_and_line *sal_object_to_symtab_and_line (PyObject *obj);
 frame_info_ptr frame_object_to_frame_info (PyObject *frame_obj);
 struct gdbarch *arch_object_to_gdbarch (PyObject *obj);
 struct compunit_symtab *compunit_object_to_compunit (PyObject *obj);
+inferior *inferior_object_to_inferior(PyObject *obj);
 
 /* Return true if OBJ is a gdb.Style object.  OBJ must not be NULL.  */
 
