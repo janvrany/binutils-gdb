@@ -25,6 +25,8 @@
 #include "symtab.h"
 #include "python.h"
 #include "inferior.h"
+#include "observable.h"
+#include "expanded-symbol.h"
 
 struct objfile_object
 {
@@ -248,6 +250,85 @@ objfpy_new (PyTypeObject *type, PyObject *args, PyObject *keywords)
     }
 
   return (PyObject *) self.release ();
+}
+
+/* Object initializer; creates new a objfile.
+
+   Use: __init__(FILENAME [, INFERIOR [,ARCH]]).  */
+
+static int
+objfpy_init (PyObject *zelf, PyObject *args, PyObject *kw)
+{
+  struct objfile_object *self = (struct objfile_object*) zelf;
+
+  if (self->objfile)
+    {
+      PyErr_Format (PyExc_RuntimeError,
+		    _("Objfile object already initialized."));
+      return -1;
+    }
+
+  static const char *keywords[] = { "filename", "inferior", "arch", nullptr };
+  const char *filename;
+  PyObject* inf_obj = nullptr;
+  PyObject* arch_obj = nullptr;
+
+
+  if (!gdb_PyArg_ParseTupleAndKeywords (args, kw, "s|OO", keywords,
+					&filename, &inf_obj, &arch_obj))
+    return -1;
+
+  inferior *inf = nullptr;
+  if (inf_obj)
+    {
+      inf = inferior_object_to_inferior (inf_obj);
+      if (! inf)
+	{
+	  PyErr_Format (PyExc_TypeError,
+		    _("The inferior argument is not gdb.Inferior object"));
+	  return -1;
+	}
+    }
+  else
+    {
+      inf = current_inferior ();
+    }
+
+  gdbarch *arch = nullptr;
+  if (arch_obj)
+    {
+      if (! gdbpy_is_architecture (arch_obj))
+	{
+	  PyErr_Format (PyExc_TypeError,
+		    _("The arch argument is not gdb.Architecture object"));
+	  return -1;
+	}
+      arch = arch_object_to_gdbarch (arch_obj);
+    }
+  else
+   {
+     arch = inf->arch ();
+   }
+
+  if (!objfpy_initialize (self))
+    {
+      PyErr_Format (PyExc_RuntimeError,
+		    _("Failed to initialize Objfile object."));
+      return -1;
+    }
+
+  struct objfile *objfile;
+
+  objfile = objfile::make (nullptr, inf->pspace, filename, OBJF_NOT_FILENAME | OBJF_READNOW);
+  objfile->per_bfd->gdbarch = arch;
+  objfile->qf.emplace_front (new expanded_symbols_functions);
+
+  self->objfile = objfile;
+  objfpy_objfile_data_key.set(objfile, self);
+  /* Increment refcount on self as it is now referenced from objfile!  */
+  Py_INCREF (self);
+
+  return 0;
 }
 
 PyObject *
@@ -528,6 +609,21 @@ objfpy_lookup_static_symbol (PyObject *self, PyObject *args, PyObject *kw)
   Py_RETURN_NONE;
 }
 
+/* Implementation of gdb.Objfile.remove ().  */
+
+static PyObject *
+objfpy_remove (PyObject *self, PyObject *args)
+{
+  objfile_object *obj = (objfile_object *) self;
+
+  OBJFPY_REQUIRE_VALID (obj);
+
+  obj->objfile->unlink();
+  clear_symtab_users (0);
+
+  Py_RETURN_NONE;
+}
+
 /* Implement repr() for gdb.Objfile.  */
 
 static PyObject *
@@ -541,6 +637,58 @@ objfpy_repr (PyObject *self_)
 
   return PyUnicode_FromFormat ("<gdb.Objfile filename=%s>",
 			       objfile_name (obj));
+}
+
+/* Implementation of 
+   gdb.Objfile.expand_symtabs_maybe_overlapping (start, end) -> None  */
+
+static PyObject *
+objfpy_expand_symtabs_maybe_overlapping (PyObject *self, PyObject *args,
+					 PyObject *kw)
+{
+  objfile_object *obj = (objfile_object *) self;
+
+  OBJFPY_REQUIRE_VALID (obj);
+
+  static const char *keywords[] = { "start", "end", nullptr };
+  uint64_t start = 0;
+  uint64_t end = 0;
+
+  if (!gdb_PyArg_ParseTupleAndKeywords (args, kw, "KK", keywords,
+					&start, &end))
+    return nullptr;
+
+  obj->objfile->expand_symtabs_maybe_overlapping ((CORE_ADDR) start,
+						  (CORE_ADDR) end);
+
+  Py_RETURN_NONE;
+}
+
+  /* Implementation of gdb.Objfile.compunits() -> List  */
+
+  static PyObject *
+  objfpy_compunits (PyObject *self_, PyObject *args)
+{
+  objfile_object *self = (objfile_object *) self_;
+
+  OBJFPY_REQUIRE_VALID (self);
+
+  gdbpy_ref<> list (PyList_New (0));
+  if (list == nullptr)
+    return nullptr;
+
+  //self->objfile->expand_all_symtabs ();
+
+  for (struct compunit_symtab &compunit : self->objfile->compunits ())
+    {
+      PyObject *item = compunit_to_compunit_object (&compunit);
+
+      if (item == nullptr
+	    || PyList_Append (list.get (), item) == -1)
+	return nullptr;
+    }
+
+  return list.release ();
 }
 
 /* Subroutine of gdbpy_lookup_objfile_by_build_id to simplify it.
@@ -703,8 +851,46 @@ objfile_to_objfile_object (struct objfile *objfile)
   return gdbpy_ref<>::new_reference (result);
 }
 
+/* Returns the struct objfile value corresponding to the given Python
+   objfile object OBJ.  Returns NULL if OBJ is not an objfile object.  */
+
+struct objfile *
+objfile_object_to_objfile (PyObject *obj)
+{
+  if (! PyObject_TypeCheck (obj, &objfile_object_type))
+    return nullptr;
+
+  return ((objfile_object *)obj)->objfile;
+}
+
+/* This function remove any dynamic objfiles left over when the
+   inferior exits.  */
+
+static void
+objfpy_inferior_exit_hook (struct inferior *inf)
+{
+  for (objfile &objf : current_program_space->objfiles_safe ())
+    {
+      if (objf.obfd == nullptr)
+	{
+	  /* Following check is to only unlink dynamic objfiles created by
+	     Python code.  Dynamic objfiles created by JIT reader API are
+	     unlinked in jit_inferior_exit_hook ().  */
+	  if (objf.jited_data == nullptr || objf.jited_data->addr != 0)
+	    objf.unlink ();
+	}
+    }
+}
+
+void _initialize_py_objfile ();
+void
+_initialize_py_objfile ()
+{
+  gdb::observers::inferior_exit.attach (objfpy_inferior_exit_hook, "py-objfile");
+}
+
 static int
-gdbpy_initialize_objfile ()
+gdbpy_initialize_objfile (void)
 {
   return gdbpy_type_ready (&objfile_object_type);
 }
@@ -733,6 +919,20 @@ Look up a global symbol in this objfile and return it." },
     METH_VARARGS | METH_KEYWORDS,
     "lookup_static_symbol (name [, domain]).\n\
 Look up a static-linkage global symbol in this objfile and return it." },
+
+  { "compunits", objfpy_compunits, METH_NOARGS,
+    "compunits () -> List.\n\
+Return a sequence of compunits associated to this objfile." },
+
+  { "remove", objfpy_remove, METH_NOARGS,
+    "remove () -> None.\n\
+Unload this objfile." },
+
+  { "expand_symtabs_maybe_overlapping", 
+    (PyCFunction) objfpy_expand_symtabs_maybe_overlapping, 
+    METH_VARARGS | METH_KEYWORDS,
+    "expand_symtabs_maybe_overlapping (start, end) -> None.\n\
+Expand all symtabs overlapping with range [start, end)." },
 
   { NULL }
 };
@@ -803,8 +1003,8 @@ PyTypeObject objfile_object_type =
   0,				  /* tp_dict */
   0,				  /* tp_descr_get */
   0,				  /* tp_descr_set */
-  offsetof (objfile_object, dict), /* tp_dictoffset */
-  0,				  /* tp_init */
+  offsetof (objfile_object, dict),/* tp_dictoffset */
+  objfpy_init,	                  /* tp_init */
   0,				  /* tp_alloc */
-  objfpy_new,			  /* tp_new */
+  objfpy_new,   		  /* tp_new */
 };

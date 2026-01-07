@@ -132,6 +132,23 @@ cooked_index::lookup (unrelocated_addr addr)
 
 /* See cooked-index.h.  */
 
+std::vector<dwarf2_per_cu *>
+cooked_index::lookup_overlapping (unrelocated_addr start,
+				  unrelocated_addr end)
+{
+  /* Ensure that the address maps are ready.  */
+  wait (cooked_state::MAIN_AVAILABLE, true);
+  std::vector<dwarf2_per_cu *> result;
+  for (const auto &shard : m_shards)
+    {
+      for (dwarf2_per_cu *cu : shard->lookup_overlapping (start, end))
+	result.push_back (cu);
+    }
+  return result;
+}
+
+/* See cooked-index.h.  */
+
 std::vector<const addrmap *>
 cooked_index::get_addrmaps ()
 {

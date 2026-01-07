@@ -23,6 +23,7 @@
 #include "dictionary.h"
 #include "gdbsupport/array-view.h"
 #include "gdbsupport/next-iterator.h"
+#include "gdbsupport/range.h"
 
 /* Opaque declarations.  */
 
@@ -321,6 +322,14 @@ struct block : public allocate_on_obstack<block>
   void relocate (struct objfile *objfile,
 		 gdb::array_view<const CORE_ADDR> offsets);
 
+  /* Return true if this block's range overlap with [L, H) range.  Return
+     false otherwise.  */
+
+  bool overlaps (CORE_ADDR l, CORE_ADDR h) const
+  {
+    return ranges_overlap (l, h, start (), end ());
+  }
+
 private:
 
   /* Return the default entry-pc of this block.  The default is the address
@@ -503,6 +512,13 @@ struct blockvector
   /* Append BLOCK at the end of blockvector.  The caller has to make sure that
      blocks are appended in correct order.  */
   void append_block (struct block *block);
+
+  /* Insert single BLOCK into the blockvector at correct place.  Callers
+     should avoid calling this to build a blockvector as this may cause
+     extensive moves if blocks are inserted in the middle.  A better approach
+     is to sort blocks first using blockvector::block_less_than and then
+     call append_block.  */
+  void insert_block (struct block *block);
 
   /* Lookup the innermost lexical block containing ADDR.  Returns the block
      if there is one, NULL otherwise.  */

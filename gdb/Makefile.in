@@ -442,6 +442,7 @@ SUBDIR_PYTHON_SRCS = \
 	python/py-value.c \
 	python/py-varobj.c \
 	python/py-xmethods.c \
+	python/py-compunit.c \
 	python/python.c
 
 SUBDIR_PYTHON_OBS = $(patsubst %.c,%.o,$(SUBDIR_PYTHON_SRCS))
@@ -1104,6 +1105,7 @@ COMMON_SFILES = \
 	event-top.c \
 	exceptions.c \
 	exec.c \
+        expanded-symbol.c \
 	expprint.c \
 	extension.c \
 	f-lang.c \

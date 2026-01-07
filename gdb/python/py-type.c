@@ -765,6 +765,130 @@ typy_unqualified (PyObject *self, PyObject *args)
   return type_to_type_object (type);
 }
 
+/* Return a function type. */
+
+static PyObject *
+typy_function (PyObject *self, PyObject *args, PyObject *kw)
+{
+  struct type *return_type = ((type_object *) self)->type;
+
+  /* Process arguments.  We cannot simply use PyArg_ParseTupleAndKeywords
+     because this method take variable number of arguments.  */
+  if (args == nullptr || !PyTuple_Check (args))
+    {
+      PyErr_Format (PyExc_ValueError,
+		    _("Arguments is %s, not a tuple."),
+		    Py_TYPE (args)->tp_name);
+      return nullptr;
+    }
+  int nparam_types = PyTuple_Size (args);
+  if (nparam_types == -1)
+    {
+      /* Can this really happen?  At this point we _know_ that
+	 ARGS is a tuple (or subclass).  */
+      PyErr_Format (PyExc_ValueError,
+		    _("Failed retrieve number of parameters."));
+      return nullptr;
+    }
+  std::vector<struct type *> param_types (nparam_types);
+  for (int i = 0; i < nparam_types; i++)
+    {
+      PyObject *param_type_obj = PySequence_GetItem (args, i);
+
+      if (param_type_obj == nullptr)
+	{
+	  PyErr_Format (PyExc_ValueError,
+			_("Failed to retrieve parameter at index %d."), i);
+	  return nullptr;
+	}
+      else
+	{
+	  param_types[i] = type_object_to_type (param_type_obj);
+	  if (param_types[i] == nullptr)
+	    {
+	      PyErr_Format (PyExc_TypeError,
+			    _("Argument at index %d is %s, not a gdb.Type "
+			      "object."),
+			    i, Py_TYPE (param_type_obj)->tp_name);
+	      return nullptr;
+	    }
+	  try
+	    {
+	      if (param_types[i]->is_void ())
+		{
+		  PyErr_Format (PyExc_ValueError,
+				_("Argument at index %d is a void type but "
+				"void as parameter type is not allowed."),
+				i);
+		  return nullptr;
+		}
+	    }
+	  catch (const gdb_exception &except)
+	    {
+	      return gdbpy_handle_gdb_exception (nullptr, except);
+	    }
+	}
+    }
+
+  if (kw != nullptr)
+    {
+      if (!PyArg_ValidateKeywordArguments (kw))
+	return nullptr;
+
+      PyObject *key, *value;
+      Py_ssize_t pos = 0;
+      while (PyDict_Next (kw, &pos, &key, &value))
+	{
+	  if (PyUnicode_CompareWithASCIIString (key, "varargs") != 0)
+	    {
+	      PyErr_Format (PyExc_ValueError,
+			    _("Invalid keyword argument \"%U\"."),
+			    key);
+	      return nullptr;
+	    }
+	  if (!PyBool_Check (value))
+	    {
+	      PyErr_Format (PyExc_ValueError,
+			    _("Value of \"varargs\" argument is \"%s\", "
+			      "not a bool."),
+			    Py_TYPE (value)->tp_name);
+	      return nullptr;
+	    }
+	  if (value == Py_True)
+	    {
+	      param_types.push_back (nullptr);
+	    }
+	}
+    }
+
+  struct type *function_type = nullptr;
+  try
+    {
+      /* Copy all objfile-owned types to arch. This way user does not
+	 need to care about mixing types from different objfiles and
+	 architectures and we do not need to expose this implementation
+	 detail to the user.  */
+
+      copied_types_hash_t copied_types;
+      return_type = copy_type_recursive (return_type, copied_types);
+      for (int i = 0; i < param_types.size (); i++)
+	{
+	  if (param_types[i] != nullptr)
+	    param_types[i] = copy_type_recursive (param_types[i], copied_types);
+	}
+
+      function_type = lookup_function_type_with_arguments
+	       (return_type, param_types.size (), param_types.data ());
+      function_type->set_is_prototyped (true);
+    }
+  catch (const gdb_exception &except)
+    {
+      return gdbpy_handle_gdb_exception (nullptr, except);
+    }
+
+  return type_to_type_object (function_type);
+}
+
 /* Return the size of the type represented by SELF, in bytes.  */
 static PyObject *
 typy_get_sizeof (PyObject *self, void *closure)
@@ -1626,6 +1750,9 @@ Return the type of a template argument." },
   { "unqualified", typy_unqualified, METH_NOARGS,
     "unqualified () -> Type\n\
 Return a variant of this type without const or volatile attributes." },
+  { "function", (PyCFunction) typy_function, METH_VARARGS | METH_KEYWORDS,
+    "function () -> Type\n\
+Return a function type returning value of this type." },
   { "values", typy_values, METH_NOARGS,
     "values () -> list\n\
 Return a list holding all the fields of this type.\n\

@@ -1,0 +1,10 @@
+SECTIONS
+{
+  .text_give_me_zero 0x00080000 :  {  }
+} INSERT BEFORE .text;
+
+SECTIONS
+{
+  .text_give_me_one  0x00F00000 :  {  }
+}
+INSERT AFTER .text;

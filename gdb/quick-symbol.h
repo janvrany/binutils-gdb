@@ -122,6 +122,11 @@ struct quick_symbol_functions
   /* Read all symbol tables associated with OBJFILE.  */
   virtual void expand_all_symtabs (struct objfile *objfile) = 0;
 
+  /* Read all symbol tables associated with OBJFILE which may overlap
+     with range [START, END).  */
+  virtual void expand_symtabs_maybe_overlapping (struct objfile *objfile,
+   CORE_ADDR start, CORE_ADDR end) = 0;
+
   /* Search all symbol tables in OBJFILE matching some criteria.
 
      If LANG_MATCHER returns false, search of the symbol table may be

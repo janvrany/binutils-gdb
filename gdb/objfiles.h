@@ -618,6 +618,9 @@ public:
   void expand_symtabs_with_fullname (const char *fullname);
 
   /* See quick_symbol_functions.  */
+  void expand_symtabs_maybe_overlapping (CORE_ADDR start, CORE_ADDR end);
+
+  /* See quick_symbol_functions.  */
   bool search
     (search_symtabs_file_matcher file_matcher,
      const lookup_name_info *lookup_name,
@@ -674,6 +677,10 @@ public:
     gdb_assert (this->section_offsets.capacity () > idx);
     this->section_offsets[idx] = offset;
   }
+
+  /* Return the section index for section mapped at memory range
+     [START, END].  If there's no such section, return -1.  */
+  int find_section_index (CORE_ADDR start, CORE_ADDR end);
 
   /* Filter function for section_iterator.  */
   struct filter_out_null_bfd_section

@@ -74,6 +74,7 @@
 #include "gdbsupport/common-utils.h"
 #include <optional>
 #include "gdbsupport/unordered_set.h"
+#include "gdbsupport/range.h"
 
 /* Forward declarations for local functions.  */
 
@@ -517,6 +518,69 @@ bool
 compunit_symtab::contains (CORE_ADDR addr) const
 {
   return blockvector ()->contains (addr);
+}
+
+/* See symtab.h.  */
+
+bool
+compunit_symtab::maybe_overlaps (CORE_ADDR start, CORE_ADDR end) const
+{
+  if (blockvector ()->global_block ()->overlaps (start, end))
+    {
+      const addrmap_fixed *map = blockvector ()->map ();
+      if (map != nullptr)
+  {
+    CORE_ADDR range_start = 0;
+    auto fn = [&](CORE_ADDR addr, const void* b) -> int
+    {
+      if (range_start != 0)
+        {
+    /* We're currently "inside" a range.  This transition means
+       that either:
+
+        (i)  The current range ends (b == nullptr). In that case
+       check for overlap and if there's an overlap, return 1
+       and finish.
+
+       (ii)  Or the range continues into another block. In that
+       case, just continue.  */
+
+    if (b == nullptr)
+      {
+        CORE_ADDR range_end = addr;
+        bool overlaps = ranges_overlap (start, end,
+                range_start, range_end);
+        range_start = 0;
+        return overlaps;
+      }
+    else
+      {
+        return 0; /* continue iterating */
+      }
+        }
+      else
+        {
+    /* We're "outside" the range.  This transition means that
+       either:
+
+        (i)  This is a start of a new range (b != nullptr). In
+       this case, just note the start address (which also
+       indicates we're "inside" a range from now on).
+       (ii)  This the very a beggining of address space. In tha
+       case do nothing.  */
+    if (b != nullptr)
+      {
+        range_start = addr;
+      }
+    return 0; /* continue iterating */
+        }
+
+    };
+    return map->foreach (fn);
+  }
+      return true;
+    }
+  return false;
 }
 
 /* See symtab.h.  */

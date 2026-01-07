@@ -220,6 +220,7 @@ optional arguments while skipping others.  Example:
 * Blocks In Python::            Accessing blocks from Python.
 * Symbols In Python::           Python representation of symbols.
 * Symbol Tables In Python::     Python representation of symbol tables.
+* Compunits In Python::         Python representation of compunits.
 * Line Tables In Python::       Python representation of line tables.
 * Breakpoints In Python::       Manipulating breakpoints using Python.
 * Finish Breakpoints in Python:: Setting Breakpoints on function return
@@ -235,6 +236,7 @@ optional arguments while skipping others.  Example:
 * Missing Debug Info In Python:: Handle missing debug info from Python.
 * Missing Objfiles In Python::  Handle objfiles from Python.
 * Core Files In Python::        Python representation of core files.
+* JIT Interface in Python::     Writing JIT compilation interface in Python
 @end menu
 
 @node Basic Python
@@ -1620,6 +1622,17 @@ type.
 @defun Type.pointer ()
 Return a new @code{gdb.Type} object which represents a pointer to this
 type.
+@end defun
+
+@defun Type.function (@r{[}param_type@dots{}@r{]}, @r{[}varargs@r{]})
+Return a new @code{gdb.Type} object which represents a type of function
+returning this type.  Returned function type is always marked as prototyped.
+
+@var{param_type@dots{}} positional-only arguments specify parameter types.
+Passing @code{void} type is not allowed.
+
+The optional @var{varargs} keyword-only argument specifies whether to create
+vararg function type.  Defaults to @code{False}.
 @end defun
 
 @defun Type.strip_typedefs ()
@@ -5930,6 +5943,19 @@ Reading symbols from ./hello...
 
 A @code{gdb.Objfile} object has the following methods:
 
+@defun Objfile.__init__ (filename @r{[}, inferior @r{][}, arch @r{]})
+Create a new objfile with given @var{filename}.
+
+The optional @var{inferior} argument specifies the inferior to which the newly
+created objfile is added.  Defaults to currently selected inferior.
+@pxref{Inferiors In Python}.
+
+The optional @var{arch} argument specifies the architectore to associate with
+the newly created objfile.  Defaults to inferior's architecture.
+@xref{Architectures In Python}.
+
+@end defun
+
 @defun Objfile.is_valid ()
 Returns @code{True} if the @code{gdb.Objfile} object is valid,
 @code{False} if not.  A @code{gdb.Objfile} object can become invalid
@@ -5964,6 +5990,20 @@ is not found.
 @defun Objfile.lookup_static_symbol (name @r{[}, domain@r{]})
 Like @code{Objfile.lookup_global_symbol}, but searches for a global
 symbol with static linkage named @var{name} in this objfile.
+@end defun
+
+@defun Objfile.compunits ()
+Return a sequence of @code{gdb.Compunit} associated with this objfile.
+@xref{Compunits In Python}.
+@end defun
+
+@defun Objfile.remove ()
+Unload this objfile from @value{GDBN}.  Symbol table information associated
+with this objfile is discarded.
+
+One particular use of @code{Objfile.remove} is to remove objfile created for
+dynamic code when dynamic code gets discarded
+(@pxref{JIT Interface in Python}).
 @end defun
 
 @node Frames In Python
@@ -6287,6 +6327,17 @@ historical compatibility.
 
 A @code{gdb.Block} object has the following methods:
 
+@defun Block.__init__ (superblock, start, end)
+Create new block in @var{superblock} spanning from @var{start} to @var{end}.
+The new block's @var{start}--@var{end} range must be within superblock's
+range and must not overlap with any block already contained in superblock.
+@end defun
+
+@defun Block.add_symbol (symbol)
+Add @var{symbol} to this block.  Both the block and the @var{symbol} must
+belong to the same compunit (@pxref{Compunits In Python}).
+@end defun
+
 @defun Block.is_valid ()
 Returns @code{True} if the @code{gdb.Block} object is valid,
 @code{False} if not.  A block object can become invalid if the block it
@@ -6316,6 +6367,11 @@ For ordinary function blocks, the superblock is the static block.
 However, you should note that it is possible for a function block to
 have a superblock that is not the static block -- for instance this
 happens for an inlined function.
+@end defvar
+
+@defvar Block.compunit
+The @code{gdb.Compunit} containing this block.  @xref{Compunits In Python}.
+This attribute is not writable.
 @end defvar
 
 @defvar Block.superblock
@@ -6523,6 +6579,32 @@ arguments.
 @end defvar
 
 A @code{gdb.Symbol} object has the following methods:
+
+@defun Symbol.__init__ (name, symtab, type, domain, addr_class, value)
+Creates new symbol named @var{name} and adds it to symbol table
+@var{symtab}.
+
+The @var{type} argument specifies type of the symbol as @var{gdb.Type}
+object (@pxref{Types In Python}).
+
+The @var{domain} argument specifies domain of the symbol.  Each domain is
+a constant defined in the @code{gdb} module and described later in this
+chapter.
+
+The @var{addr_class} argument, together with @var{value} argument, specifies
+how to find the value of this symbol.  Each address class is a constant
+defined in the @code{gdb} module and described later in this chapter.  As of
+now, only @code{gdb.SYMBOL_LOC_BLOCK} address class is supported, but future
+versions of @value{GDBN} may support more address classes.
+
+The meaning of @var{value} argument depends on the value of @var{addr_class}:
+@vtable @code
+@item gdb.SYMBOL_LOC_BLOCK
+The @var{value} argument must be a block (a @code{gdb.Block} object).  Block
+must belong to the same compunit as the
+@var{symtab} parameter (@pxref{Compunits In Python}).
+@end vtable
+@end defun
 
 @defun Symbol.is_valid ()
 Returns @code{True} if the @code{gdb.Symbol} object is valid,
@@ -6753,7 +6835,16 @@ If no producer information is available then @code{None} is returned.
 This attribute is not writable.
 @end defvar
 
+@defvar Symtab.compunit
+The @code{gdb.Compunit} this symbol table belongs to.
+@xref{Compunits In Python}.  This attribute is not writable.
+@end defvar
+
 A @code{gdb.Symtab} object has the following methods:
+
+@defun Symtab.__init__ (filename, compunit)
+Create a new symtab for given @var{filename} in given @var{compunit}.
+@end defun
 
 @defun Symtab.is_valid ()
 Returns @code{True} if the @code{gdb.Symtab} object is valid,
@@ -6780,6 +6871,81 @@ Return the static block of the underlying symbol table.
 @defun Symtab.linetable ()
 Return the line table associated with the symbol table.
 @xref{Line Tables In Python}.
+@end defun
+
+@node Compunits In Python
+@subsubsection Compunits representation in Python
+
+@cindex compunits in python
+@tindex gdb.Compunit
+
+A compilation unit -- compunit for short -- represents a piece of code
+compiled by compiler independently of the rest. It is a result of compiling
+(parts of) one or more source files.
+
+Access to compunits maintained by @value{GDBN} on objfiles
+is exposed to Python via @code{gdb.Compunit}.  Compunit for a symbol table can
+be accessed via @code{compunit} property of @code{gdb.Symtab} object.
+@xref{Symbol Tables In Python}.  Method @code{compunits} of
+@code{gdb.Objfile} can be used to get a list of all compunits belonging to
+that objfile.  @xref{Objfiles In Python}.
+
+A @code{gdb.Compunit} object has the following attributes:
+
+@defvar Compunit.objfile
+The @code{gdb.Objfile} from which the compunit was extracted.
+@xref{Objfiles In Python}.  This attribute is not writable.
+@end defvar
+
+@defvar Compunit.producer
+The name and possibly version number of the program that
+compiled the code in the compunit.
+The contents of this string is up to the compiler.
+If no producer information is available then @code{None} is returned.
+This attribute is not writable.
+@end defvar
+
+@defvar Compunit.symtabs
+The sequence of @code{gdb.Symtab} objects associated with this compunit.
+@xref{Symbol Tables In Python}.  This attribute is not writable.
+@end defvar
+
+A @code{gdb.Compunit} object has the following methods:
+
+@defun Compunit.__init__ (filename, objfile, start, end @r{[}, capacity @r{]})
+Create a new compunit with given @var{filename} in given @var{objfile}
+(@pxref{Objfiles In Python}).  The newly created compunit has an empty global
+block and empty static block (@pxref{Blocks In Python}).
+
+The @var{start} and @var{end} arguments specifies the start and end address
+of compunit's global and static blocks.  It must not overlap with any existing
+compunit belonging to the same program space
+(@pxref{Progspaces In Python}).
+
+The optional @var{capacity} argument sets the initial capacity of the
+internal block vector.  More blocks than @var{capacity} can still be added
+to the compunit however.  If not specified, defaults to 8 blocks (including
+global and static blocks).
+@end defun
+
+@defun Compunit.is_valid ()
+Returns @code{True} if the @code{gdb.Compunit} object is valid,
+@code{False} if not.  A @code{gdb.Compunit} object can become invalid if
+the compunit it refers to does not exist in @value{GDBN} any
+longer.  All other @code{gdb.Compunit} methods will throw an exception
+if it is invalid at the time the method is called.  Similarly, accessing
+any of the attributes will throw an exception if it is invalid at the time
+the attribute is accessed.
+@end defun
+
+@defun Compunit.global_block ()
+Return @code{gdb.Block} object representing the global block of the
+underlying compunit.  @xref{Blocks In Python}.
+@end defun
+
+@defun Compunit.static_block ()
+Return @code{gdb.Block} object representing the static block of the
+underlying compunit.  @xref{Blocks In Python}.
 @end defun
 
 @node Line Tables In Python
@@ -6811,6 +6977,31 @@ executable code for that source line resides in memory.  This
 attribute is not writable.
 @end defvar
 
+@defvar LineTableEntry.is_stmt
+True if pc (associated with this entry) is a good location to place
+a breakpoint for line (associated with this entry).  This attribute is not
+writable.
+@end defvar
+
+@defvar LineTableEntry.prologue_end
+True if pc (associated with this entry) is a good location to place
+a breakpoint after a function prologue.  This attribute is not
+writable.
+@end defvar
+
+@defvar LineTableEntry.epilogue_begin
+True if pc (associated with this entry) marks the start of the epilogue.
+This attribute is not writable.
+@end defvar
+
+@code{LineTableEntry} objects have the following methods:
+
+@defun LineTableEntry.__init__ (line, pc@r{[}, is_stmt@r{][}, prologue_end@r{][}, epilogue_begin@r{]})
+Create new line table entry. Arguments correspond to @code{LineTableEntry}
+attributes described above.  Optional arguments @var{is_stmt},
+@var{prologue_end} and @var{epilogue_begin} default to @code{False}.
+@end defun
+
 As there can be multiple addresses for a single source line, you may
 receive multiple @code{LineTableEntry} objects with matching
 @code{line} attributes, but with different @code{pc} attributes.  The
@@ -6839,6 +7030,14 @@ Line: 45 Address: 0x400615L
 
 In addition to being able to iterate over a @code{LineTable}, it also
 has the following direct access methods:
+
+@defun LineTable.__init__ (symtab, entries)
+Creates a new @code{LineTable} object and associate it with given
+@var{symtab}.  Old linetable that might already be associated with @var{symtab}
+is discarded.  The @var{entries} argument is a list of @code{LineTableEntry}
+objects that constitute the newly created line table.  Line table entries
+do not need to be sorted.
+@end defun
 
 @defun LineTable.line (line)
 Return a Python @code{Tuple} of @code{LineTableEntry} objects for any
@@ -8995,6 +9194,127 @@ the inferior.
 This read only attribute contains the offset within the mapped file
 for this mapping.
 @end defvar
+
+@node JIT Interface in Python
+@subsubsection Writing JIT compilation interface in Python
+@cindex python, just-in-time compilation, JIT compilation interface
+
+This section provides a high-level overview how to implement a JIT compiler
+interface entirely in Python.  For alternative way of interfacing a JIT
+@pxref{JIT Interface}.
+
+A JIT compiler interface usually needs to implement three elements:
+
+@enumerate
+@item
+A way how to get notified when the JIT compiler compiles (and installs) new
+code and when existing code is discarded.  Typical solution is to put a Python
+breakpoint (@pxref{Breakpoints In Python}) on some function known to be
+called by the JIT compiler once code is installed or discarded.
+
+@item
+When a new code is installed the JIT interface needs to extract (debug)
+information for newly installed code from the JIT compiler
+(@pxref{Values From Inferior}) and build @value{GDBN}'s internal structures.
+@xref{Objfiles In Python}, @ref{Compunits In Python},
+ @ref{Blocks In Python},   @ref{Symbol Tables In Python},
+ @ref{Symbols In Python},  @ref{Line Tables In Python}).
+
+@item
+Finally, when (previously installed) code is discarded the JIT interface
+needs to discard @value{GDBN}'s internal structures built in previous step.
+This is done by calling @code{unlink} on an objfile for that code
+(which was created in previous step).
+@end enumerate
+
+Here's an example showing how to write a simple JIT interface in Python:
+
+@c The copy of the code below is also in testsuite/gdb.python/py-jit.py
+@c and used by py-jit.exp to make sure it is up to date.  If changed the
+@c test and py-jit.py should be checked and update accordingly if needed.
+@smallexample
+import gdb
+
+class JITRegisterCode(gdb.Breakpoint):
+    def stop(self):
+        # Extract new code's address, size, name, linetable (and possibly
+        # other useful information).  How exactly to do so depends on JIT
+        # compiler in question.
+        #
+        # In this example address, size and name get passed as parameters
+        # to registration function.
+
+        frame = gdb.newest_frame()
+        addr = int(frame.read_var('code'))
+        size = int(frame.read_var('size'))
+        name = frame.read_var('name').string()
+        linetable_entries = get_linetable_entries(addr)
+
+        # Create objfile and compunit for allocated "jitted" code
+        objfile = gdb.Objfile(name)
+        compunit = gdb.Compunit(name, objfile, addr, addr + size)
+
+        # Mark the objfile as "jitted" code.  This will be used later when
+        # unregistering discarded code to check the objfile was indeed
+        # created for "jitted" code.
+        setattr(objfile, "is_jit_code", True)
+
+        # Create block for jitted function
+        block = gdb.Block(compunit.static_block(), addr, addr + size)
+
+        # Create symbol table holding info about jitted function, ...
+        symtab = gdb.Symtab("py-jit.c", compunit)
+        linetable = gdb.LineTable(symtab, linetable_entries)
+
+        # ...type of the jitted function...
+        void_t = gdb.selected_inferior().architecture().void_type()
+        func_t = void_t.function()
+
+        # ...and symbol representing jitted function.
+        symbol = gdb.Symbol(name, symtab, func_t,
+                            gdb.SYMBOL_FUNCTION_DOMAIN, gdb.SYMBOL_LOC_BLOCK,
+                            block)
+
+        # Finally, register the symbol in static block...
+        compunit.static_block().add_symbol(symbol)
+
+        # ..and continue execution
+        return False
+
+# Create breakpoint to register new code
+JITRegisterCode("jit_register_code", internal=True)
+
+
+class JITUnregisterCode(gdb.Breakpoint):
+    def stop(self):
+        # Find out which code has been discarded.  Again, how exactly to
+        # do so depends on JIT compiler in question.
+        #
+        # In this example address of discarded code is passed as a
+        # parameter.
+
+        frame = gdb.newest_frame()
+        addr = int(frame.read_var('code'))
+
+        # Find objfile which was created in JITRegisterCode.stop() for
+        # given jitted code.
+        objfile = gdb.current_progspace().objfile_for_address(addr)
+        if objfile is None:
+            # No objfile for given addr (this should not normally happen)
+            return False # Continue execution
+        if not getattr(objfile, "is_jit_code", False):
+            # Not a jitted code (this should not happen either)
+            return False # Continue execution
+
+        # Unload the objfile and all debug info associated with it...
+        objfile.remove()
+
+        # ..and continue execution
+        return False # Continue execution
+
+# Create breakpoint to discard old code
+JITUnregisterCode("jit_unregister_code", internal=True)
+@end smallexample
 
 @node Python Auto-loading
 @subsection Python Auto-loading

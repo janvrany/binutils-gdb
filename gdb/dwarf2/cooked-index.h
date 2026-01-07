@@ -132,6 +132,10 @@ public:
      found.  */
   dwarf2_per_cu *lookup (unrelocated_addr addr) override;
 
+  /* Look up all CUs that overlap with range <START, END).  */
+  std::vector<dwarf2_per_cu *> lookup_overlapping (unrelocated_addr start,
+						   unrelocated_addr end);
+
   /* Return a new vector of all the addrmaps used by all the indexes
      held by this object.
 
@@ -235,6 +239,26 @@ struct cooked_index_functions : public dwarf2_base_index_functions
   {
     wait (objfile, true);
     dwarf2_base_index_functions::expand_all_symtabs (objfile);
+  }
+
+  /* Cooked index's version of expand_symtabs_maybe_overlapping.  See its
+     definition in the definition of quick_symbol_functions in symfile.h.  */
+
+  void expand_symtabs_maybe_overlapping (struct objfile *objfile,
+	CORE_ADDR start, CORE_ADDR end) override
+  {
+    cooked_index *index = wait (objfile, true);
+
+    unrelocated_addr unrel_start
+      = unrelocated_addr (start - objfile->text_section_offset ());
+    unrelocated_addr unrel_end
+      = unrelocated_addr (end - objfile->text_section_offset ());
+
+    for (dwarf2_per_cu *cu
+	  : index->lookup_overlapping (unrel_start, unrel_end))
+      {
+	dw2_instantiate_symtab (cu, get_dwarf2_per_objfile (objfile), false);
+      }
   }
 
   bool search

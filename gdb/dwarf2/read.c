@@ -1537,6 +1537,13 @@ struct readnow_functions : public dwarf2_base_index_functions
   {
   }
 
+  void expand_symtabs_maybe_overlapping (struct objfile *objfile,
+					 CORE_ADDR start,
+					 CORE_ADDR end) override
+  {
+    this->expand_all_symtabs (objfile);
+  }
+
   bool search (struct objfile *objfile,
 	       search_symtabs_file_matcher file_matcher,
 	       const lookup_name_info *lookup_name,
@@ -1678,12 +1685,9 @@ dw2_do_instantiate_symtab (dwarf2_per_cu *per_cu,
   per_objfile->age_comp_units ();
 }
 
-/* Ensure that the symbols for PER_CU have been read in.  DWARF2_PER_OBJFILE is
-   the per-objfile for which this symtab is instantiated.
+/* See read.h.  */
 
-   Returns the resulting symbol table.  */
-
-static struct compunit_symtab *
+struct compunit_symtab *
 dw2_instantiate_symtab (dwarf2_per_cu *per_cu, dwarf2_per_objfile *per_objfile,
 			bool skip_partial)
 {

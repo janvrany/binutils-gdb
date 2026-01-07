@@ -217,6 +217,18 @@ blpy_get_static_block (PyObject *self, void *closure)
   return block_to_block_object (static_block, self_obj->objfile);
 }
 
+/* Getter function for Block.compunit.  */
+
+static PyObject *
+blpy_get_compunit (PyObject *self, void *closure)
+{
+  const struct block *block;
+
+  BLPY_REQUIRE_VALID (self, block);
+
+  return compunit_to_compunit_object (block->global_block ()->compunit ());
+}
+
 /* Implementation of gdb.Block.is_global (self) -> Boolean.
    Returns True if this block object is a global block.  */
 
@@ -248,6 +260,39 @@ blpy_is_static (PyObject *self, void *closure)
     Py_RETURN_TRUE;
 
   Py_RETURN_FALSE;
+}
+
+/* Implementation of gdb.Block.add_symbol (self, symbol).
+   Adds SYMBOL to this block.  */
+
+static PyObject *
+blpy_add_symbol (PyObject *self, PyObject *symbol_obj)
+{
+  const struct block *block;
+
+  BLPY_REQUIRE_VALID (self, block);
+
+  struct symbol *symbol = symbol_object_to_symbol (symbol_obj);
+  if (symbol == nullptr)
+    return PyErr_Format (PyExc_TypeError,
+			 _("The symbol argument is not valid gdb.Symbol"));
+
+  if (symbol->symtab ()->compunit() != block->global_block ()->compunit ())
+    return PyErr_Format (PyExc_ValueError,
+			 _("The symbol argument belongs to different "
+			   "compunit than block"));
+
+  multidictionary *dict = block->multidict ();
+  if (dict == nullptr)
+    {
+      auto_obstack *obstack =
+	&(block->global_block ()->compunit ()->objfile ()->objfile_obstack);
+      dict = mdict_create_linear (obstack, {});
+      const_cast<struct block *>(block)->set_multidict (dict);
+    }
+
+  mdict_add_symbol (dict, symbol);
+  Py_RETURN_NONE;
 }
 
 /* Given a string, returns the gdb.Symbol representing that symbol in this
@@ -329,6 +374,106 @@ blpy_dealloc (PyObject *obj)
     }
 
   Py_TYPE (obj)->tp_free (obj);
+}
+
+/* Object initializer; creates new block.
+
+   Use: __init__(SUPERBLOCK, START, END).  */
+
+static int
+blpy_init (PyObject *zelf, PyObject *args, PyObject *kw)
+{
+  struct block_object *self = (struct block_object*) zelf;
+
+  if (self->block)
+    {
+      PyErr_Format (PyExc_RuntimeError,
+		    _("Block object already initialized."));
+      return -1;
+    }
+
+  static const char *keywords[] = { "superblock", "start", "end", nullptr };
+  PyObject *superblock_obj;
+  uint64_t start;
+  uint64_t end;
+
+  if (!gdb_PyArg_ParseTupleAndKeywords (args, kw, "OKK", keywords,
+					 &superblock_obj, &start, &end))
+    return -1;
+
+
+  auto superblock = block_object_to_block (superblock_obj);
+  if (superblock == nullptr)
+    {
+      PyErr_Format (PyExc_TypeError,
+		    _("The superblock argument is not valid gdb.Block "
+		      "object"));
+      return -1;
+    }
+
+  /* Check that start-end range is valid.  */
+  if (! (start <= end))
+    {
+      PyErr_Format (PyExc_ValueError,
+		    _("The start argument must be less or equal to the end "
+		      "argument"));
+      return -1;
+
+    }
+
+  /* Check that start-end range is within superblocks' range.  */
+  if (! (superblock-> start() <= start && end <= superblock->end ()))
+    {
+      PyErr_Format (PyExc_ValueError,
+		    _("The start-end range must be within superblocks' "
+		      "range"));
+      return -1;
+    }
+
+  /* Check that start-end range does not overlap with any
+     "sibling" blocks' range.  */
+  compunit_symtab *cu = superblock->global_block ()->compunit ();
+
+  for (const struct block *each : cu->blockvector ()->blocks ())
+    {
+      if (each->superblock () == superblock)
+	{
+	  /* each is a "sibling" block. */
+	  if (each->overlaps (start, end))
+	    {
+	      PyErr_Format (PyExc_ValueError,
+		    _("The start-end range overlaps with one of the "
+		      "sibling blocks"));
+	      return -1;
+	    }
+	}
+    }
+
+  auto_obstack *obstack = &(cu->objfile ()->objfile_obstack);
+  struct block *blk = new (obstack) block ();
+
+  blk->set_superblock (superblock);
+  blk->set_multidict (mdict_create_linear (obstack, {}));
+  blk->set_start ((CORE_ADDR) start);
+  blk->set_end ((CORE_ADDR) end);
+
+  cu->blockvector ()->insert_block (blk);
+
+  self->block = blk;
+  self->objfile = cu->objfile ();
+
+  htab_t table = blpy_objfile_data_key.get (self->objfile);
+  if (table == nullptr)
+    {
+      table = htab_create_alloc (10, block_object_hash, block_object_eq,
+				 block_object_del, xcalloc, xfree);
+      blpy_objfile_data_key.set (self->objfile, table);
+    }
+  hashval_t hash = htab_hash_pointer (blk);
+  void **slot = htab_find_slot_with_hash (table, blk, hash, INSERT);
+  *slot = self;
+
+  return 0;
 }
 
 /* Create a new block object (gdb.Block) that encapsulates the struct
@@ -531,7 +676,6 @@ blpy_richcompare (PyObject *self, PyObject *other, int op)
 static int
 gdbpy_initialize_blocks ()
 {
-  block_object_type.tp_new = PyType_GenericNew;
   if (gdbpy_type_ready (&block_object_type) < 0)
     return -1;
 
@@ -550,6 +694,9 @@ static PyMethodDef block_object_methods[] = {
   { "is_valid", blpy_is_valid, METH_NOARGS,
     "is_valid () -> Boolean.\n\
 Return true if this block is valid, false if not." },
+  { "add_symbol", blpy_add_symbol, METH_O,
+    "add_symbol (symbol) -> None.\n\
+Add given symbol to the block." },
   {NULL}  /* Sentinel */
 };
 
@@ -564,6 +711,8 @@ static gdb_PyGetSetDef block_object_getset[] = {
     "Block containing the global block.", NULL },
   { "static_block", blpy_get_static_block, NULL,
     "Block containing the static block.", NULL },
+  { "compunit", blpy_get_compunit, nullptr,
+    "Compunit containing this block.", nullptr },
   { "is_static", blpy_is_static, NULL,
     "Whether this block is a static block.", NULL },
   { "is_global", blpy_is_global, NULL,
@@ -609,7 +758,15 @@ PyTypeObject block_object_type = {
   0,				  /* tp_iternext */
   block_object_methods,		  /* tp_methods */
   0,				  /* tp_members */
-  block_object_getset		  /* tp_getset */
+  block_object_getset,		  /* tp_getset */
+  0,				  /* tp_base */
+  0,				  /* tp_dict */
+  0,				  /* tp_descr_get */
+  0,				  /* tp_descr_set */
+  0,                              /* tp_dictoffset */
+  blpy_init,                      /* tp_init */
+  0,				  /* tp_alloc */
+  PyType_GenericNew		  /* tp_new */
 };
 
 static PyMethodDef block_iterator_object_methods[] = {
